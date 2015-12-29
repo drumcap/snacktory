@@ -81,6 +81,22 @@ public class OutputFormatter {
     }
 
     /**
+     * Takes an element and returns elements of positive gravity score
+     * @param topNode
+     * @return
+     */
+    public Elements getPositiveScore(Element topNode) {
+        Elements ret = new Elements();
+        Elements gravityItems = topNode.select("*[gravityScore]");
+        for (Element item : gravityItems) {
+            int score = Integer.parseInt(item.attr("gravityScore"));
+            if (score > 0)
+                ret.add(item);
+        }
+        return ret;
+    }
+
+    /**
      * If there are elements inside our top node that have a negative gravity
      * score remove them
      */

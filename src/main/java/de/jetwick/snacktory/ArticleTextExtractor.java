@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
+import org.jsoup.helper.StringUtil;
+import org.jsoup.nodes.Attribute;
+import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -97,7 +100,7 @@ public class ArticleTextExtractor {
     }
 
     /**
-     * @param html extracts article text from given html string. wasn't tested
+     * @param doc html extracts article text from given html string. wasn't tested
      * with improper HTML, although jSoup should be able to handle minor stuff.
      * @returns extracted article, all HTML tags stripped
      */
@@ -151,15 +154,23 @@ public class ArticleTextExtractor {
         }
 
         if (bestMatchElement != null) {
-            List<ImageResult> images = new ArrayList<ImageResult>();
-            Element imgEl = determineImageSource(bestMatchElement, images);
-            if (imgEl != null) {
-                res.setImageUrl(SHelper.replaceSpaces(imgEl.attr("src")));
-                // TODO remove parent container of image if it is contained in bestMatchElement
-                // to avoid image subtitles flooding in
 
-                res.setImages(images);
-            }
+//            Element el = bestMatchElement.clone();
+            final Elements positiveEl = formatter.getPositiveScore(bestMatchElement.clone());
+            res.setHtmlText(positiveEl);
+            String headerImg = extractImageUrl(doc);
+            positiveEl.select("a").removeAttr("onclick");
+
+//            System.out.println("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"+positiveEl);
+//            System.out.println("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
+
+            List<ImageResult> images = new ArrayList<ImageResult>();
+//            determineImageSource(bestMatchElement, images, headerImg);
+            determineImageSource(positiveEl, images, headerImg);
+            res.setImages(images);
+
+            if (images.size() > 0)
+                res.setImageUrl(SHelper.replaceSpaces(images.get(0).src));
 
             // clean before grabbing text
             String text = formatter.getFormattedText(bestMatchElement);
@@ -172,9 +183,9 @@ public class ArticleTextExtractor {
             res.setTextList(formatter.getTextList(bestMatchElement));
         }
 
-        if (res.getImageUrl().isEmpty()) {
-            res.setImageUrl(extractImageUrl(doc));
-        }
+//        if (res.getImageUrl().isEmpty()) {
+//            res.setImageUrl(extractImageUrl(doc));
+//        }
 
         res.setRssUrl(extractRssUrl(doc));
         res.setVideoUrl(extractVideoUrl(doc));
@@ -405,16 +416,21 @@ public class ArticleTextExtractor {
         return weight;
     }
 
-    public Element determineImageSource(Element el, List<ImageResult> images) {
+    public Element determineImageSource(Elements el, List<ImageResult> images, String headerImg) {
         int maxWeight = 0;
         Element maxNode = null;
         Elements els = el.select("img");
-        if (els.isEmpty())
-            els = el.parent().select("img");        
-        
+//        if (els.isEmpty())
+//            els = el.parent().select("img");
+
         double score = 1;
         for (Element e : els) {
             String sourceUrl = e.attr("src");
+
+            if (StringUtil.isBlank(sourceUrl)) {
+                sourceUrl = getImageFromAttributes(e.attributes());
+            }
+
             if (sourceUrl.isEmpty() || isAdImage(sourceUrl))
                 continue;
 
@@ -456,6 +472,9 @@ public class ArticleTextExtractor {
                 }
             }
 
+            if (sourceUrl.equals(headerImg))
+                weight += 200;
+
             weight = (int) (weight * score);
             if (weight > maxWeight) {
                 maxWeight = weight;
@@ -469,6 +488,24 @@ public class ArticleTextExtractor {
 
         Collections.sort(images, new ImageComparator());
         return maxNode;
+    }
+
+    protected String getImageFromAttributes(Attributes attrs) {
+        String ret = "";
+
+        for (Attribute attr : attrs) {
+            String key = attr.getKey();
+            String val = attr.getValue();
+
+            if (!key.startsWith("data-") || StringUtil.isBlank(val))
+                continue;
+            if (SHelper.isImage(val)) {
+                ret = attr.getValue();
+                break;
+            }
+        }
+
+        return ret;
     }
 
     /**

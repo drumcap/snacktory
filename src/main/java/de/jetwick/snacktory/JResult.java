@@ -15,6 +15,8 @@
  */
 package de.jetwick.snacktory;
 
+import org.jsoup.select.Elements;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,8 +44,18 @@ public class JResult implements Serializable {
     private List<String> textList;
     private Collection<String> keywords;
     private List<ImageResult> images = null;
+    private Elements htmlText;
 
     public JResult() {
+    }
+
+    public Elements getHtmlText() {
+        return htmlText;
+    }
+
+    public JResult setHtmlText(Elements htmlText) {
+        this.htmlText = htmlText;
+        return this;
     }
 
     public String getUrl() {
@@ -132,7 +144,7 @@ public class JResult implements Serializable {
     }
 
     public List<String> getTextList() {
-        if(this.textList == null)
+        if (this.textList == null)
             return new ArrayList<String>();
         return this.textList;
     }
